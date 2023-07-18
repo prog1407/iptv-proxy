@@ -30,6 +30,7 @@ public class XmltvUtils {
                 .configure(MapperFeature.AUTO_DETECT_IS_GETTERS, false)
                 .configure(MapperFeature.AUTO_DETECT_SETTERS, false)
                 .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .defaultUseWrapper(false)
                 .addModule(new JavaTimeModule())
                 .visibility(new VisibilityChecker.Std(JsonAutoDetect.Visibility.NONE, JsonAutoDetect.Visibility.NONE, JsonAutoDetect.Visibility.NONE, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY))
@@ -43,7 +44,7 @@ public class XmltvUtils {
                 return xmltvMapper.readValue(is, XmltvDoc.class);
             }
         } catch (IOException e) {
-            LOG.error("error parsing xmltv data");
+            LOG.error("error parsing xmltv data", e);
             return null;
         }
     }
