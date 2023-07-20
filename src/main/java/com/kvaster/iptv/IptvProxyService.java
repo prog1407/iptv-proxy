@@ -264,7 +264,7 @@ public class IptvProxyService implements HttpHandler {
                         String tvgName = c.getProp("tvg-name");
 
                         if (!sg.groupFilters.isEmpty()) {
-                            if (c.getGroups().stream().anyMatch((g) -> sg.groupFilters.stream().anyMatch((f) -> f.matcher(g).find()))) {
+                            if (c.getGroups().stream().noneMatch((g) -> sg.groupFilters.stream().anyMatch((f) -> f.matcher(g).find()))) {
                                 // skip channel - filtered by group filter
                                 return;
                             }
