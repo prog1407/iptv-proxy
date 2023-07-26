@@ -353,6 +353,16 @@ public class IptvServerChannel {
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .whenComplete((resp, err) -> {
                     if (HttpUtils.isOk(resp, err, rid, startNanos)) {
+                        // if channel URL in response is different from initial channelUrl
+                        // (for example, due to load balancing being applied on iptv provider side or could be the case
+                        // when xstream codes are used) -- update channelUrl
+                        URI uriFromResponse = resp.uri();
+                        String channelUrlFromResponse = uriFromResponse.toString();
+                        if (!us.channelUrl.equals(channelUrlFromResponse)) {
+                            LOG.info("{}[{}] channel url updated: {}", rid, user.getId(), channelUrlFromResponse);
+                            us.channelUrl = channelUrlFromResponse;
+                        }
+
                         String[] info = resp.body().split("\n");
 
                         Digest digest = Digest.sha256();
@@ -393,9 +403,15 @@ public class IptvServerChannel {
                             } else {
                                 // transform url
                                 if (!l.startsWith("http://") && !l.startsWith("https://")) {
-                                    int idx = channelUrl.lastIndexOf('/');
-                                    if (idx >= 0) {
-                                        l = channelUrl.substring(0, idx + 1) + l;
+                                    // iptv provider sends relative URL. Need to consider response URI data to build
+                                    // full URL
+                                    if (l.startsWith("/")) {
+                                        l = uriFromResponse.getScheme() + "://" + uriFromResponse.getHost() + ":" + uriFromResponse.getPort() + l;
+                                    } else {
+                                        int idx = channelUrl.lastIndexOf('/');
+                                        if (idx >= 0) {
+                                            l = channelUrl.substring(0, idx + 1) + l;
+                                        }
                                     }
                                 }
 
@@ -472,10 +488,10 @@ public class IptvServerChannel {
     }
 
     private UserStreams createUserStreams(HttpServerExchange exchange, IptvUser user) {
-        String url = createChannelUrl(exchange);
-
         // user is locked here
         UserStreams us = userStreams.get(user.getId());
+        String currentChannelUrl = us != null ? us.channelUrl : this.channelUrl;
+        String url = createChannelUrl(exchange, currentChannelUrl);
         if (us == null || !us.channelUrl.equals(url)) {
             boolean isCatchup = exchange.getQueryParameters().containsKey("utc") ||
                     exchange.getQueryParameters().containsKey("lutc") ||
@@ -488,7 +504,7 @@ public class IptvServerChannel {
         return us;
     }
 
-    private String createChannelUrl(HttpServerExchange exchange) {
+    private String createChannelUrl(HttpServerExchange exchange, String channelUrl) {
         Map<String, String> qp = new TreeMap<>();
         exchange.getQueryParameters().forEach((k, v) -> {
             // skip our token tag
